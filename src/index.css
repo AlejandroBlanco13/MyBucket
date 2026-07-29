@@ -2,18 +2,108 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --ink: 10 10 10;
+  --paper: 250 250 250;
+  --mute: 82 82 82;
+  --line: 228 228 228;
+  --line-dark: 38 38 38;
+  --surface: 245 245 245;
+}
+
+.dark {
+  --ink: 250 250 250;
+  --paper: 10 10 10;
+  --mute: 163 163 163;
+  --line: 38 38 38;
+  --line-dark: 64 64 64;
+  --surface: 18 18 18;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE / Edge legacy */
   }
-  
+
+  html::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Edge */
+    width: 0;
+    height: 0;
+  }
+
   body {
-    @apply bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300;
+    background-color: rgb(var(--paper));
+    color: rgb(var(--ink));
+    font-family: Manrope, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 500ms ease, color 500ms ease;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  body::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  ::selection {
+    background-color: rgb(var(--ink));
+    color: rgb(var(--paper));
   }
 }
 
 @layer utilities {
-  .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-500 to-purple-600;
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .noise-overlay {
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    opacity: 0.04;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 180px 180px;
+    mix-blend-mode: overlay;
+  }
+
+  .grid-atmosphere {
+    background-image:
+      linear-gradient(to right, rgb(var(--line) / 0.55) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(var(--line) / 0.55) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
+  }
+
+  .dark .grid-atmosphere {
+    background-image:
+      linear-gradient(to right, rgb(var(--line-dark) / 0.7) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(var(--line-dark) / 0.7) 1px, transparent 1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .animate-film-roll,
+  .animate-film-roll-y {
+    animation: none !important;
+    transform: none !important;
   }
 }

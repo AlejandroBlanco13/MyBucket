@@ -2,7 +2,7 @@
   "name": "mybucket",
   "version": "1.0.0",
   "type": "module",
-  "description": "MyBucket - Portfolio personal interactivo con React, TypeScript y Tailwind CSS",
+  "description": "MyBucket — Portfolio personal de Alejandro Blanco. React, TypeScript, Motion y Tailwind.",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -10,10 +10,11 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "lucide-react": "^1.27.0",
+    "motion": "^12.43.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-icons": "^4.12.0",
-    "framer-motion": "^10.16.16"
+    "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",

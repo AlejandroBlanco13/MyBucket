@@ -6,7 +6,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { motion, useMotionValue, useSpring } from 'motion/react'
-import { realmCards, type RealmAction } from '../../data/alejandria'
+import { realmCards, type PageBackgroundState, type RealmAction } from '../../data/alejandria'
 import { RealmCard } from './RealmCard'
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
 
@@ -14,14 +14,20 @@ const DRAG_THRESHOLD = 10
 
 type RealmRailProps = {
   onSelect: (action: RealmAction) => void
+  onHoverRealm?: (pageBackground: PageBackgroundState | null) => void
   locked?: boolean
 }
+
 
 /**
  * Carril horizontal de reinos.
  * Página estática: rueda / arrastre mueven las cards; el click entra al reino.
  */
-export function RealmRail({ onSelect, locked = false }: RealmRailProps) {
+export function RealmRail({
+  onSelect,
+  onHoverRealm,
+  locked = false,
+}: RealmRailProps) {
   const reduced = usePrefersReducedMotion()
   const viewportRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
@@ -177,6 +183,14 @@ export function RealmRail({ onSelect, locked = false }: RealmRailProps) {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onPointerLeave={() => {
+        if (!lockedRef.current) onHoverRealm?.(null)
+      }}
+      onBlur={(e) => {
+        const next = e.relatedTarget as Node | null
+        if (next && e.currentTarget.contains(next)) return
+        if (!lockedRef.current) onHoverRealm?.(null)
+      }}
       role="region"
       aria-label="Reinos de Alejandría"
     >
@@ -199,6 +213,13 @@ export function RealmRail({ onSelect, locked = false }: RealmRailProps) {
           >
             <RealmCard
               realm={realm}
+              onFocusRealm={() => {
+                if (dragging.current || lockedRef.current) return
+                onHoverRealm?.({
+                  image: realm.pageBackground,
+                  position: realm.pageBackgroundPosition ?? 'center',
+                })
+              }}
               onSelect={() => {
                 // Solo bloquea si hubo arrastre real
                 if (moved.current) return

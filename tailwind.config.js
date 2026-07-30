@@ -16,6 +16,7 @@ export default {
         display: ['Syne', 'system-ui', 'sans-serif'],
         sans: ['Manrope', 'system-ui', 'sans-serif'],
         mono: ['IBM Plex Mono', 'ui-monospace', 'monospace'],
+        mark: ['"Great Vibes"', 'cursive'],
       },
       maxWidth: {
         content: '72rem',

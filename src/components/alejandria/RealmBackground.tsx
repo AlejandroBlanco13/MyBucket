@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useState } from 'react'
 import type { PageBackgroundState } from '../../data/alejandria'
 import { defaultPageBackground, realmCards } from '../../data/alejandria'
 
@@ -8,7 +7,7 @@ function bgKey(bg: PageBackgroundState) {
   return `${bg.image}|${bg.position}`
 }
 
-function uniqueBackgrounds(): PageBackgroundState[] {
+export function uniqueBackgrounds(): PageBackgroundState[] {
   const list: PageBackgroundState[] = [defaultPageBackground]
   for (const card of realmCards) {
     list.push({
@@ -25,43 +24,60 @@ function uniqueBackgrounds(): PageBackgroundState[] {
   })
 }
 
-/** Precarga temprana (también al montar las capas). */
-export function preloadRealmBackgrounds() {
-  uniqueBackgrounds().forEach((bg) => {
+function loadImage(src: string): Promise<void> {
+  return new Promise((resolve) => {
     const img = new Image()
     img.decoding = 'async'
-    img.src = bg.image
+    img.onload = () => {
+      if (img.decode) {
+        img.decode().then(() => resolve()).catch(() => resolve())
+      } else {
+        resolve()
+      }
+    }
+    img.onerror = () => resolve()
+    img.src = src
   })
+}
+
+/** Precarga fondos con progreso 0–1 */
+export async function preloadRealmBackgrounds(
+  onProgress?: (ratio: number) => void,
+): Promise<void> {
+  const layers = uniqueBackgrounds()
+  if (layers.length === 0) {
+    onProgress?.(1)
+    return
+  }
+
+  let done = 0
+  await Promise.all(
+    layers.map(async (bg) => {
+      await loadImage(bg.image)
+      done += 1
+      onProgress?.(done / layers.length)
+    }),
+  )
 }
 
 type RealmBackgroundProps = {
   background: PageBackgroundState
   reduced: boolean
+  /** Si false, oculta capas hasta que el boot termine */
+  armed?: boolean
 }
 
 /**
  * Todas las capas viven en el DOM (imágenes ya optimizadas).
  * El cambio solo anima opacidad — sin decodificar ni montar al vuelo.
  */
-export function RealmBackground({ background, reduced }: RealmBackgroundProps) {
-  const layers = useMemo(() => uniqueBackgrounds(), [])
+export function RealmBackground({
+  background,
+  reduced,
+  armed = true,
+}: RealmBackgroundProps) {
+  const layers = uniqueBackgrounds()
   const activeKey = bgKey(background)
-  const [ready, setReady] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    const imgs = layers.map((bg) => {
-      const img = new Image()
-      img.src = bg.image
-      return img.decode ? img.decode().catch(() => undefined) : Promise.resolve()
-    })
-    void Promise.all(imgs).then(() => {
-      if (!cancelled) setReady(true)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [layers])
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-black" aria-hidden>
@@ -79,14 +95,11 @@ export function RealmBackground({ background, reduced }: RealmBackgroundProps) {
             className="pointer-events-none absolute inset-0 h-full w-full object-cover"
             style={{
               objectPosition: layer.position,
-              opacity: active ? 1 : 0,
+              opacity: armed && active ? 1 : 0,
               transition:
-                reduced || !ready
+                reduced || !armed
                   ? undefined
                   : `opacity ${FADE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
-              // Evita que capas ocultas sigan compositando a full
-              visibility: active || ready ? 'visible' : 'hidden',
-              willChange: ready ? 'opacity' : 'auto',
             }}
           />
         )

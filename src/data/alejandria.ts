@@ -52,7 +52,7 @@ export const alejandriaCopy = {
   brand: 'Alejandría',
   welcome: 'Bienvenido a Alejandría',
   support:
-    'Un imperio de mundos. Elige por dónde entrar — MyBucket es la puerta principal.',
+    'Un imperio de mundos. Elige el mundo por conocer.',
 }
 
 export const personalRealms: PersonalRealm[] = [

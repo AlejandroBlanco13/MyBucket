@@ -4,16 +4,26 @@ type RealmCardProps = {
   realm: RealmCardData
   onSelect: () => void
   onFocusRealm?: () => void
+  /** Un poco más grandes al explorar el carril */
+  expanded?: boolean
 }
 
-/** Tamaño único para todos los reinos */
-const CARD_SIZE =
-  'h-[360px] w-[252px] sm:h-[380px] sm:w-[268px] md:h-[420px] md:w-[300px]'
+const CARD_SIZE = {
+  normal:
+    'h-[380px] w-[270px] sm:h-[410px] sm:w-[290px] md:h-[460px] md:w-[320px]',
+  expanded:
+    'h-[420px] w-[295px] sm:h-[450px] sm:w-[315px] md:h-[510px] md:w-[350px]',
+}
 
 /**
- * Card estilo galería — mismo tamaño siempre; texto sin recortes rotos.
+ * Card estilo galería — crece ligeramente al desplazar el carril.
  */
-export function RealmCard({ realm, onSelect, onFocusRealm }: RealmCardProps) {
+export function RealmCard({
+  realm,
+  onSelect,
+  onFocusRealm,
+  expanded = false,
+}: RealmCardProps) {
   const tags = realm.tags.filter(
     (tag) => tag.toLowerCase() !== realm.label.toLowerCase(),
   )
@@ -24,7 +34,9 @@ export function RealmCard({ realm, onSelect, onFocusRealm }: RealmCardProps) {
       onClick={onSelect}
       onPointerEnter={onFocusRealm}
       onFocus={onFocusRealm}
-      className={`group relative shrink-0 overflow-hidden border border-white/10 bg-neutral-900 text-left transition-transform duration-500 hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white ${CARD_SIZE}`}
+      className={`group relative shrink-0 overflow-hidden border border-white/10 bg-neutral-900 text-left transition-[width,height,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white ${
+        expanded ? CARD_SIZE.expanded : CARD_SIZE.normal
+      }`}
     >
       <div
         className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"

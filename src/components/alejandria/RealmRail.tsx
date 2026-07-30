@@ -15,9 +15,12 @@ const DRAG_THRESHOLD = 10
 type RealmRailProps = {
   onSelect: (action: RealmAction) => void
   onHoverRealm?: (pageBackground: PageBackgroundState | null) => void
+  /** true cuando el carril ya se desplazó del inicio */
+  onRailScroll?: (scrolled: boolean) => void
+  /** Cards un poco más grandes al explorar */
+  expanded?: boolean
   locked?: boolean
 }
-
 
 /**
  * Carril horizontal de reinos.
@@ -26,6 +29,8 @@ type RealmRailProps = {
 export function RealmRail({
   onSelect,
   onHoverRealm,
+  onRailScroll,
+  expanded = false,
   locked = false,
 }: RealmRailProps) {
   const reduced = usePrefersReducedMotion()
@@ -40,9 +45,12 @@ export function RealmRail({
   const lastT = useRef(0)
   const velocity = useRef(0)
   const lockedRef = useRef(locked)
+  const onRailScrollRef = useRef(onRailScroll)
+  const scrolledRef = useRef(false)
   const [, setReady] = useState(false)
 
   lockedRef.current = locked
+  onRailScrollRef.current = onRailScroll
 
   const raw = useMotionValue(0)
   const x = useSpring(raw, {
@@ -50,6 +58,15 @@ export function RealmRail({
     damping: reduced ? 40 : 24,
     mass: 0.55,
   })
+
+  useEffect(() => {
+    return raw.on('change', (value) => {
+      const scrolled = Math.abs(value) > 28
+      if (scrolled === scrolledRef.current) return
+      scrolledRef.current = scrolled
+      onRailScrollRef.current?.(scrolled)
+    })
+  }, [raw])
 
   const measure = useCallback(() => {
     const viewport = viewportRef.current
@@ -213,6 +230,7 @@ export function RealmRail({
           >
             <RealmCard
               realm={realm}
+              expanded={expanded}
               onFocusRealm={() => {
                 if (dragging.current || lockedRef.current) return
                 onHoverRealm?.({

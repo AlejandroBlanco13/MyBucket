@@ -15,4 +15,10 @@ module.exports = {
       { allowConstantExport: true },
     ],
   },
+  overrides: [
+    {
+      files: ['server/**/*.ts', 'api/**/*.ts', 'vite.config.ts'],
+      env: { node: true, browser: false },
+    },
+  ],
 }

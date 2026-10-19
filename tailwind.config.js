@@ -17,6 +17,7 @@ export default {
         sans: ['Manrope', 'system-ui', 'sans-serif'],
         mono: ['IBM Plex Mono', 'ui-monospace', 'monospace'],
         mark: ['"Great Vibes"', 'cursive'],
+        mincho: ['"Shippori Mincho"', 'serif'],
       },
       maxWidth: {
         content: '72rem',

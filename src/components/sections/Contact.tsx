@@ -14,17 +14,36 @@ export function Contact() {
   const progress = useExitProgress(contentRef)
 
   const [form, setForm] = useState({ name: '', email: '', message: '' })
-  const [sent, setSent] = useState(false)
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>(
+    'idle',
+  )
+  const [error, setError] = useState('')
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    const subject = encodeURIComponent(`Contacto desde MyBucket — ${form.name}`)
-    const body = encodeURIComponent(
-      `${form.message}\n\n— ${form.name}\n${form.email}`,
-    )
-    window.location.href = `mailto:${profile.email}?subject=${subject}&body=${body}`
-    setSent(true)
-    setForm({ name: '', email: '', message: '' })
+    setStatus('sending')
+    setError('')
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const data = (await response.json()) as { ok?: boolean; error?: string }
+
+      if (!response.ok || !data.ok) {
+        setStatus('error')
+        setError(data.error || 'No se pudo enviar el mensaje.')
+        return
+      }
+
+      setStatus('sent')
+      setForm({ name: '', email: '', message: '' })
+    } catch {
+      setStatus('error')
+      setError('No se pudo enviar el mensaje.')
+    }
   }
 
   const info = [
@@ -134,7 +153,9 @@ export function Contact() {
                     required
                     name="name"
                     value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, name: e.target.value }))
+                    }
                     className="w-full border-b border-line bg-transparent py-3 text-ink outline-none transition-colors placeholder:text-mute/50 focus:border-ink dark:border-line-dark"
                     placeholder="Tu nombre"
                   />
@@ -149,7 +170,7 @@ export function Contact() {
                     name="email"
                     value={form.email}
                     onChange={(e) =>
-                      setForm({ ...form, email: e.target.value })
+                      setForm((prev) => ({ ...prev, email: e.target.value }))
                     }
                     className="w-full border-b border-line bg-transparent py-3 text-ink outline-none transition-colors placeholder:text-mute/50 focus:border-ink dark:border-line-dark"
                     placeholder="tu@email.com"
@@ -167,7 +188,7 @@ export function Contact() {
                   rows={5}
                   value={form.message}
                   onChange={(e) =>
-                    setForm({ ...form, message: e.target.value })
+                    setForm((prev) => ({ ...prev, message: e.target.value }))
                   }
                   className="w-full resize-none border-b border-line bg-transparent py-3 text-ink outline-none transition-colors placeholder:text-mute/50 focus:border-ink dark:border-line-dark"
                   placeholder="Cuéntame sobre el proyecto..."
@@ -175,16 +196,22 @@ export function Contact() {
               </label>
 
               <div className="mt-8 flex items-center justify-between gap-4">
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-mute">
-                  {sent
-                    ? 'Listo — abre tu cliente de correo'
-                    : 'Respuesta en 24–48h'}
+                <p
+                  className="font-mono text-[10px] uppercase tracking-[0.18em] text-mute"
+                  aria-live="polite"
+                >
+                  {status === 'sent'
+                    ? 'Mensaje enviado. Respuesta en 24–48h'
+                    : status === 'error'
+                      ? error
+                      : 'Respuesta en 24–48h'}
                 </p>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-2 bg-ink px-6 py-3 text-sm font-medium text-paper transition-opacity hover:opacity-90"
+                  disabled={status === 'sending'}
+                  className="inline-flex items-center gap-2 bg-ink px-6 py-3 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-60"
                 >
-                  Enviar
+                  {status === 'sending' ? 'Enviando' : 'Enviar'}
                   <ArrowUpRight size={14} />
                 </button>
               </div>

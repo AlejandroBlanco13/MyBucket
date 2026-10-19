@@ -28,7 +28,7 @@ export const timeFrames: TimeFrame[] = [
     title: 'Bases',
     detail: 'HTML, lógica y la disciplina de repetir.',
     image:
-      'https://images.unsplash.com/photo-1498050108023-c8199c97d1e4?w=900&q=80',
+      'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=900&q=80',
     alt: 'Laptop con código en blanco y negro',
   },
   {

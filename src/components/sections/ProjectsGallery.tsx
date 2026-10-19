@@ -132,7 +132,18 @@ function ProjectCard({ project, compact }: CardProps) {
               {project.title}
             </h3>
           </div>
-          <div className="flex gap-2 opacity-100 transition-opacity duration-300 md:opacity-0 md:group-hover:opacity-100">
+          <div className="flex gap-2">
+            {project.demo && (
+              <a
+                href={project.demo}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Sitio de ${project.title}`}
+                className="flex h-9 w-9 items-center justify-center border border-white/30 text-white hover:bg-white hover:text-black"
+              >
+                <ArrowUpRight size={14} />
+              </a>
+            )}
             {project.github && (
               <a
                 href={project.github}
@@ -144,22 +155,27 @@ function ProjectCard({ project, compact }: CardProps) {
                 <Code2 size={14} />
               </a>
             )}
-            {project.demo && (
-              <a
-                href={project.demo}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`Demo de ${project.title}`}
-                className="flex h-9 w-9 items-center justify-center border border-white/30 text-white hover:bg-white hover:text-black"
-              >
-                <ArrowUpRight size={14} />
-              </a>
-            )}
           </div>
         </div>
         <p className="mt-3 max-w-sm text-sm leading-relaxed text-white/65 line-clamp-3">
           {project.description}
         </p>
+        {project.demo && (
+          <a
+            href={project.demo}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.18em] text-white/80 hover:text-white"
+          >
+            {project.demo.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
+            <ArrowUpRight size={12} />
+          </a>
+        )}
+        {project.private && (
+          <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.18em] text-white/45">
+            Aplicación privada
+          </p>
+        )}
         <div className="mt-4 flex flex-wrap gap-2">
           {project.technologies.map((tech) => (
             <span

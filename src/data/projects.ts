@@ -7,6 +7,8 @@ export type Project = {
   technologies: string[]
   github?: string
   demo?: string
+  /** Sin enlace público: el producto no está abierto al visitante. */
+  private?: boolean
   accent: string
   image: string
 }
@@ -20,6 +22,7 @@ export const projects: Project[] = [
     description:
       'Ecommerce de gran escala para el mercado costarricense: catálogo, roles, flujos de venta y experiencia de compra de alto impacto.',
     technologies: ['Next.js', 'TypeScript', 'React', 'API'],
+    demo: 'https://quinpart.com/',
     accent: '#111111',
     image:
       'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&q=80',
@@ -32,7 +35,7 @@ export const projects: Project[] = [
     description:
       'Experiencia de roleplay inmersiva con narrativa, interacción y identidad visual propia.',
     technologies: ['TypeScript', 'React'],
-    github: 'https://github.com/AlejandroBlanco13/MeaCulpaUni',
+    demo: 'https://meaculpadnd.com/',
     accent: '#1a1a1a',
     image:
       'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1200&q=80',
@@ -45,9 +48,9 @@ export const projects: Project[] = [
     description:
       'Sistema de gestión para operaciones ganaderas: control de inventario, trazabilidad y operación diaria.',
     technologies: ['Python', 'SQL', 'Desktop/Web'],
+    private: true,
     accent: '#222222',
-    image:
-      'https://images.unsplash.com/photo-1500595046743-cd271d815f13?w=1200&q=80',
+    image: '/download.jpeg',
   },
   {
     id: 4,
@@ -57,7 +60,7 @@ export const projects: Project[] = [
     description:
       'Plataforma para administrar personal, procesos internos y operación del equipo con claridad.',
     technologies: ['Java', 'SQL'],
-    github: 'https://github.com/AlejandroBlanco13/SistemaGestionAcademia',
+    private: true,
     accent: '#2a2a2a',
     image:
       'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&q=80',
@@ -70,7 +73,7 @@ export const projects: Project[] = [
     description:
       'Menú digital interactivo para restaurantes: exploración de platos, UX móvil y presentación visual.',
     technologies: ['PHP', 'JavaScript', 'HTML/CSS'],
-    github: 'https://github.com/AlejandroBlanco13/Restaurante-Footie',
+    private: true,
     accent: '#333333',
     image:
       'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200&q=80',
@@ -83,8 +86,7 @@ export const projects: Project[] = [
     description:
       'Landing pages turísticas en Costa Rica orientadas a conversión, storytelling del destino y performance.',
     technologies: ['TypeScript', 'React', 'Vite'],
-    github: 'https://github.com/AlejandroBlanco13/ProyectoSistemasInformacion',
-    demo: 'https://proyecto-sistemas-informacion.vercel.app',
+    private: true,
     accent: '#0d0d0d',
     image:
       'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=80',

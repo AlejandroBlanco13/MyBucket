@@ -1,8 +1,11 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
-import { AnimatePresence, motion, useScroll, useSpring } from 'motion/react'
+import Lenis from 'lenis'
+import { AnimatePresence, motion, useScroll, useSpring, useTransform } from 'motion/react'
 import { animeTales } from '../data/anime'
 import { TalePassage } from '../components/anime/Passages'
+import { RootTree } from '../components/anime/RootTree'
+import { EmakiClose } from '../components/anime/EmakiClose'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 
 function prefersReducedMotion() {
@@ -76,11 +79,14 @@ function Gate({ onEnter }: { onEnter: () => void }) {
   )
 }
 
-function scrollToTale(id: string, reduced: boolean) {
-  document.getElementById(id)?.scrollIntoView({
-    behavior: reduced ? 'auto' : 'smooth',
-    block: 'start',
-  })
+function scrollToTale(id: string, lenis: Lenis | null, reduced: boolean) {
+  const node = document.getElementById(id)
+  if (!node) return
+  if (lenis && !reduced) {
+    lenis.scrollTo(node, { offset: 0, duration: 1.35 })
+    return
+  }
+  node.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
 }
 
 /**
@@ -89,16 +95,42 @@ function scrollToTale(id: string, reduced: boolean) {
  */
 export function Anime() {
   const reduced = usePrefersReducedMotion()
+  const lenisRef = useRef<Lenis | null>(null)
+  const indexRef = useRef<HTMLElement>(null)
   const [gate, setGate] = useState(() => !prefersReducedMotion())
   const [active, setActive] = useState(0)
   const [hovered, setHovered] = useState<string | null>(null)
   const tale = animeTales[active]
   const { scrollYProgress } = useScroll()
+  const { scrollYProgress: indexLeave } = useScroll({
+    target: indexRef,
+    offset: ['start start', 'end end'],
+  })
+  const indexScale = useTransform(indexLeave, [0, 1], [1, 0.86])
+  const indexLift = useTransform(indexLeave, [0, 1], [0, -240])
   const progress = useSpring(scrollYProgress, {
     stiffness: 120,
     damping: 30,
     mass: 0.4,
   })
+
+  const openEmaki = useCallback(() => {
+    window.scrollTo(0, 0)
+    setGate(false)
+  }, [])
+
+  const replayEmaki = useCallback(() => {
+    window.location.reload()
+  }, [])
+
+  useLayoutEffect(() => {
+    const previous = history.scrollRestoration
+    history.scrollRestoration = 'manual'
+    window.scrollTo(0, 0)
+    return () => {
+      history.scrollRestoration = previous
+    }
+  }, [])
 
   useEffect(() => {
     const previousTitle = document.title
@@ -117,13 +149,35 @@ export function Anime() {
     const previousBody = document.body.style.overflow
     document.documentElement.style.overflow = 'hidden'
     document.body.style.overflow = 'hidden'
-    const timeout = window.setTimeout(() => setGate(false), reduced ? 280 : 1600)
+    const pinTop = () => {
+      if (window.scrollY !== 0) window.scrollTo(0, 0)
+    }
+    pinTop()
+    window.addEventListener('scroll', pinTop, { passive: true })
+    const timeout = window.setTimeout(openEmaki, reduced ? 280 : 1600)
     return () => {
       window.clearTimeout(timeout)
+      window.removeEventListener('scroll', pinTop)
       document.documentElement.style.overflow = previousHtml
       document.body.style.overflow = previousBody
     }
-  }, [gate, reduced])
+  }, [gate, reduced, openEmaki])
+
+  useEffect(() => {
+    if (reduced || gate) return
+    const lenis = new Lenis({
+      lerp: 0.075,
+      smoothWheel: true,
+      wheelMultiplier: 0.72,
+      autoRaf: true,
+    })
+    lenis.scrollTo(0, { immediate: true })
+    lenisRef.current = lenis
+    return () => {
+      lenis.destroy()
+      lenisRef.current = null
+    }
+  }, [reduced, gate])
 
   useEffect(() => {
     const nodes = animeTales
@@ -192,7 +246,7 @@ export function Anime() {
               type="button"
               aria-label={`${item.rank}. ${item.title}`}
               aria-current={selected ? 'true' : undefined}
-              onClick={() => scrollToTale(item.id, reduced)}
+              onClick={() => scrollToTale(item.id, lenisRef.current, reduced)}
               className={`flex items-center gap-2 px-2 py-1 font-mincho text-sm transition-colors md:px-0 ${
                 selected ? 'text-[color:var(--tale-gold)]' : 'text-white/40 hover:text-white'
               }`}
@@ -211,8 +265,18 @@ export function Anime() {
       <main>
         <section
           id="anime-index"
-          className="relative flex min-h-svh flex-col justify-center overflow-x-hidden px-5 pb-24 pt-24 sm:px-10 md:px-16 md:pb-16 lg:px-24"
+          ref={indexRef}
+          className={reduced ? 'relative z-0 min-h-svh' : 'relative z-0 h-[200svh] -mb-[100svh]'}
         >
+          <div className={reduced ? 'relative h-svh' : 'sticky top-0 h-svh overflow-hidden'}>
+          <motion.div
+            className="flex h-full min-h-svh flex-col justify-center overflow-x-hidden px-5 pb-24 pt-24 sm:px-10 md:px-16 md:pb-16 lg:px-24"
+            style={
+              reduced
+                ? undefined
+                : { scale: indexScale, y: indexLift, transformOrigin: 'center center' }
+            }
+          >
           <Asanoha id="asanoha-index" />
           <div className="relative grid w-full gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div>
@@ -254,7 +318,7 @@ export function Anime() {
                   <li key={item.id} className="border-t border-white/10 last:border-b">
                     <button
                       type="button"
-                      onClick={() => scrollToTale(item.id, reduced)}
+                      onClick={() => scrollToTale(item.id, lenisRef.current, reduced)}
                       onMouseEnter={() => setHovered(item.id)}
                       onMouseLeave={() => setHovered(null)}
                       onFocus={() => setHovered(item.id)}
@@ -281,15 +345,19 @@ export function Anime() {
               </ol>
             </div>
           </div>
+          </motion.div>
+          </div>
         </section>
 
         {animeTales.map((item) => (
           <TalePassage key={item.id} tale={item} reduced={reduced} />
         ))}
+        <RootTree reduced={reduced} />
+        <EmakiClose onReturn={replayEmaki} />
       </main>
 
       <AnimatePresence>
-        {gate && <Gate key="gate" onEnter={() => setGate(false)} />}
+        {gate && <Gate key="gate" onEnter={openEmaki} />}
       </AnimatePresence>
     </div>
   )

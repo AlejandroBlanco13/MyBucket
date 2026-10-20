@@ -1,7 +1,6 @@
-import { useRef, type CSSProperties, type PointerEvent } from 'react'
+import { useRef, type CSSProperties, type ReactNode } from 'react'
 import {
   motion,
-  useMotionValue,
   useScroll,
   useTransform,
   type MotionStyle,
@@ -11,38 +10,134 @@ import type { AnimeTale } from '../../data/anime'
 type PassageProps = {
   tale: AnimeTale
   reduced: boolean
+  /** La lámina siguiente sube y tapa a esta mientras sigue fija. */
+  overlapNext: boolean
 }
 
-function useScrub(reduced: boolean) {
+function useScrub() {
   const ref = useRef<HTMLElement>(null)
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ['start start', 'end end'],
   })
-  const px = useMotionValue(0)
-  const py = useMotionValue(0)
+  // 0: el pasaje asoma por abajo. 1: ya ocupa la pantalla.
+  const { scrollYProgress: arrive } = useScroll({
+    target: ref,
+    offset: ['start end', 'start start'],
+  })
 
-  const onPointerMove = (event: PointerEvent<HTMLElement>) => {
-    if (reduced) return
-    const bounds = event.currentTarget.getBoundingClientRect()
-    px.set((event.clientX - bounds.left) / bounds.width - 0.5)
-    py.set((event.clientY - bounds.top) / bounds.height - 0.5)
-  }
-
-  return { ref, scrollYProgress, px, py, onPointerMove }
+  return { ref, scrollYProgress, arrive }
 }
+
+type Scrub = ReturnType<typeof useScrub>
 
 function stageHeight(reduced: boolean) {
-  return reduced ? 'relative h-svh' : 'relative h-[172vh] md:h-[190vh]'
+  return reduced ? 'relative h-svh' : 'relative h-[260svh]'
 }
 
-function taleStyle(tale: AnimeTale): CSSProperties {
+function taleStyle(tale: AnimeTale, reduced: boolean): CSSProperties {
   return {
-    backgroundColor: tale.ink,
+    backgroundColor: reduced ? tale.ink : 'transparent',
     '--tale-accent': tale.accent,
     '--tale-gold': tale.gold,
     '--tale-ink': tale.ink,
   } as CSSProperties
+}
+
+function PassageStage({
+  tale,
+  reduced,
+  overlapNext,
+  scrub,
+  frameClassName = 'absolute inset-0',
+  children,
+}: {
+  tale: AnimeTale
+  reduced: boolean
+  overlapNext: boolean
+  scrub: Scrub
+  frameClassName?: string
+  children: ReactNode
+}) {
+  const { ref, scrollYProgress, arrive } = scrub
+  const bridge = !reduced
+  const radius = useTransform(arrive, [0, 0.94], [48, 0])
+  const gutter = useTransform(arrive, [0, 0.94], [22, 0])
+  const sheetWidth = useTransform(gutter, (value) => `calc(100% - ${value * 2}px)`)
+  const clip = useTransform(radius, (value) => `inset(0 round ${value}px ${value}px 0 0)`)
+  const shadow = useTransform(arrive, (value) => {
+    const alpha = (1 - Math.min(1, Math.max(0, value))) * 0.62
+    return `0 -42px 80px rgba(0,0,0,${alpha.toFixed(3)})`
+  })
+  const depth = useTransform([arrive, scrollYProgress], ([entered, progressed]: number[]) => {
+    const enter = 1.07 - entered * 0.07
+    if (!overlapNext) return enter
+    const covered = Math.min(1, Math.max(0, (progressed - 0.34) / 0.66))
+    return enter * (1 - covered * 0.14)
+  })
+  const drift = useTransform(scrollYProgress, (value) => {
+    if (!overlapNext) return 0
+    const covered = Math.min(1, Math.max(0, (value - 0.34) / 0.66))
+    return -covered * 120
+  })
+  const dim = useTransform(scrollYProgress, [0.4, 1], [0, overlapNext ? 0.28 : 0])
+
+  return (
+    <section
+      id={tale.id}
+      ref={ref}
+      className={`${stageHeight(reduced)} ${bridge && overlapNext ? '-mb-[100svh]' : ''}`}
+      style={{ ...taleStyle(tale, reduced), zIndex: tale.rank }}
+    >
+      <motion.div
+        className="sticky top-0 h-svh"
+        style={
+          bridge
+            ? {
+                marginInline: gutter,
+                width: sheetWidth,
+                borderTopLeftRadius: radius,
+                borderTopRightRadius: radius,
+                boxShadow: shadow,
+              }
+            : undefined
+        }
+      >
+        <motion.div
+          className="h-full overflow-hidden"
+          style={{
+            backgroundColor: tale.ink,
+            borderTopLeftRadius: bridge ? radius : 0,
+            borderTopRightRadius: bridge ? radius : 0,
+            clipPath: bridge ? clip : undefined,
+          }}
+        >
+        <motion.div
+          className={frameClassName}
+          style={
+            bridge
+              ? {
+                  backgroundColor: tale.ink,
+                  scale: depth,
+                  y: drift,
+                  transformOrigin: 'center center',
+                }
+              : { backgroundColor: tale.ink }
+          }
+        >
+          {children}
+          {bridge && overlapNext && (
+            <motion.div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 z-30 bg-black"
+              style={{ opacity: dim }}
+            />
+          )}
+        </motion.div>
+        </motion.div>
+      </motion.div>
+    </section>
+  )
 }
 
 function TaleCopy({
@@ -119,35 +214,31 @@ function motionOr<T>(reduced: boolean, style: T): T | undefined {
   return reduced ? undefined : style
 }
 
-function FmaPassage({ tale, reduced }: PassageProps) {
-  const { ref, scrollYProgress, px, py, onPointerMove } = useScrub(reduced)
+function FmaPassage({ tale, reduced, overlapNext }: PassageProps) {
+  const scrub = useScrub()
+  const { scrollYProgress } = scrub
   const scale = useTransform(scrollYProgress, [0, 1], [1.22, 1.04])
-  const shiftX = useTransform(px, [-0.5, 0.5], [-16, 16])
-  const shiftY = useTransform(py, [-0.5, 0.5], [-10, 10])
   const mask = useTransform(scrollYProgress, (value: number) => {
     const opened = Math.min(1, Math.max(0, value / 0.72))
-    return `circle(${36 + opened * 50}% at 50% 52%)`
+    const solid = 84 + opened * 16
+    const fade = Math.min(100, solid + 12 - opened * 8)
+    return `radial-gradient(circle at 50% 52%, #000 ${solid}%, transparent ${fade}%)`
   })
   const ring = useTransform(scrollYProgress, [0.08, 0.78], [760, 0])
   const copyY = useTransform(scrollYProgress, [0, 0.32], [28, 0])
   const copyOpacity = useTransform(scrollYProgress, [0, 0.24], [0.35, 1])
 
   return (
-    <section
-      id={tale.id}
-      ref={ref}
-      className={stageHeight(reduced)}
-      style={taleStyle(tale)}
-    >
-      <div
-        className="sticky top-0 h-svh overflow-hidden"
-        onPointerMove={onPointerMove}
-      >
+    <PassageStage tale={tale} reduced={reduced} overlapNext={overlapNext} scrub={scrub}>
         <motion.img
           src={tale.image}
           alt={tale.imageAlt}
           className="absolute inset-[-8%] h-[116%] w-[116%] max-w-none object-cover"
-          style={motionOr(reduced, { scale, x: shiftX, y: shiftY, clipPath: mask })}
+          style={motionOr(reduced, {
+            scale,
+            maskImage: mask,
+            WebkitMaskImage: mask,
+          })}
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#140e0c] via-[#140e0c]/80 to-[#140e0c]/25 sm:bg-gradient-to-r sm:from-[#140e0c] sm:via-[#140e0c]/75 sm:to-transparent" />
         <svg
@@ -179,38 +270,28 @@ function FmaPassage({ tale, reduced }: PassageProps) {
           style={motionOr(reduced, { y: copyY, opacity: copyOpacity })}
         />
         <Credit tale={tale} />
-      </div>
-    </section>
+    </PassageStage>
   )
 }
 
 const WAVE_PATH =
   'M0 80 Q40 28 80 80 T160 80 T240 80 T320 80 T400 80 T480 80 T560 80 T640 80 T720 80 T800 80 T880 80 T960 80 T1040 80 T1120 80 T1200 80 T1280 80 V140 H0 Z'
 
-function SeaPassage({ tale, reduced }: PassageProps) {
-  const { ref, scrollYProgress, px, onPointerMove } = useScrub(reduced)
+function SeaPassage({ tale, reduced, overlapNext }: PassageProps) {
+  const scrub = useScrub()
+  const { scrollYProgress } = scrub
   const driftY = useTransform(scrollYProgress, [0, 1], ['-7%', '9%'])
-  const driftX = useTransform(px, [-0.5, 0.5], [-18, 18])
   const waveX = useTransform(scrollYProgress, [0, 1], ['0%', '-18%'])
   const horizon = useTransform(scrollYProgress, [0.08, 0.5], [0.15, 1])
   const copyY = useTransform(scrollYProgress, [0, 0.4], [48, 0])
 
   return (
-    <section
-      id={tale.id}
-      ref={ref}
-      className={stageHeight(reduced)}
-      style={taleStyle(tale)}
-    >
-      <div
-        className="sticky top-0 h-svh overflow-hidden"
-        onPointerMove={onPointerMove}
-      >
+    <PassageStage tale={tale} reduced={reduced} overlapNext={overlapNext} scrub={scrub}>
         <motion.img
           src={tale.image}
           alt={tale.imageAlt}
           className="absolute inset-x-[-4%] top-[-8%] h-[120%] w-[108%] max-w-none object-cover object-[center_45%]"
-          style={motionOr(reduced, { y: driftY, x: driftX })}
+          style={motionOr(reduced, { y: driftY })}
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#041018] via-[#041018]/55 to-black/10" />
         <motion.div
@@ -236,41 +317,30 @@ function SeaPassage({ tale, reduced }: PassageProps) {
           className="absolute inset-x-0 bottom-0 z-10 px-5 pb-28 sm:px-10 md:px-14 md:pb-16 lg:px-16"
           style={motionOr(reduced, { y: copyY })}
         />
-      </div>
-    </section>
+    </PassageStage>
   )
 }
 
-function WallPassage({ tale, reduced }: PassageProps) {
-  const { ref, scrollYProgress, px, onPointerMove } = useScrub(reduced)
+function WallPassage({ tale, reduced, overlapNext }: PassageProps) {
+  const scrub = useScrub()
+  const { scrollYProgress } = scrub
   const clipPath = useTransform(scrollYProgress, (value: number) => {
     const opened = Math.min(1, Math.max(0, value / 0.62))
-    const side = 26 * (1 - opened)
-    const top = 10 * (1 - opened)
-    return `inset(${top}% ${side}% 0% ${side}%)`
+    const side = 12 * (1 - opened)
+    return `inset(0% ${side}% 0% ${side}%)`
   })
   const scale = useTransform(scrollYProgress, [0, 1], [1.16, 1.02])
-  const shiftX = useTransform(px, [-0.5, 0.5], [-14, 14])
   const line = useTransform(scrollYProgress, [0.05, 0.7], [0.04, 1])
   const textX = useTransform(scrollYProgress, [0, 0.38], [-36, 0])
   const textOpacity = useTransform(scrollYProgress, [0, 0.28], [0, 1])
 
   return (
-    <section
-      id={tale.id}
-      ref={ref}
-      className={stageHeight(reduced)}
-      style={taleStyle(tale)}
-    >
-      <div
-        className="sticky top-0 h-svh overflow-hidden bg-[#121410]"
-        onPointerMove={onPointerMove}
-      >
+    <PassageStage tale={tale} reduced={reduced} overlapNext={overlapNext} scrub={scrub}>
         <motion.img
           src={tale.image}
           alt={tale.imageAlt}
           className="absolute inset-[-6%] h-[112%] w-[112%] max-w-none object-cover object-center"
-          style={motionOr(reduced, { clipPath, scale, x: shiftX })}
+          style={motionOr(reduced, { clipPath, scale })}
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/15 sm:bg-gradient-to-r sm:from-black/80 sm:via-black/40 sm:to-transparent" />
         <motion.span
@@ -288,36 +358,32 @@ function WallPassage({ tale, reduced }: PassageProps) {
           style={motionOr(reduced, { x: textX, opacity: textOpacity })}
         />
         <Credit tale={tale} />
-      </div>
-    </section>
+    </PassageStage>
   )
 }
 
-function EclipsePassage({ tale, reduced }: PassageProps) {
-  const { ref, scrollYProgress, py, onPointerMove } = useScrub(reduced)
+function EclipsePassage({ tale, reduced, overlapNext }: PassageProps) {
+  const scrub = useScrub()
+  const { scrollYProgress } = scrub
   const scale = useTransform(scrollYProgress, [0, 1], [1.35, 1])
-  const lift = useTransform(py, [-0.5, 0.5], [-10, 10])
   const corona = useTransform(scrollYProgress, [0.1, 0.8], [0.12, 0.7])
   const grain = useTransform(scrollYProgress, [0, 1], [0.12, 0.38])
   const copyY = useTransform(scrollYProgress, [0.12, 0.48], [40, 0])
   const copyOpacity = useTransform(scrollYProgress, [0.08, 0.4], [0, 1])
 
   return (
-    <section
-      id={tale.id}
-      ref={ref}
-      className={stageHeight(reduced)}
-      style={taleStyle(tale)}
+    <PassageStage
+      tale={tale}
+      reduced={reduced}
+      overlapNext={overlapNext}
+      scrub={scrub}
+      frameClassName="absolute inset-0 flex items-end"
     >
-      <div
-        className="sticky top-0 flex h-svh items-end overflow-hidden bg-black"
-        onPointerMove={onPointerMove}
-      >
         <motion.img
           src={tale.image}
           alt={tale.imageAlt}
           className="absolute inset-0 h-full w-full object-cover object-center"
-          style={motionOr(reduced, { scale, y: lift })}
+          style={motionOr(reduced, { scale })}
         />
         <motion.div
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_18%,rgba(120,16,12,0.28)_42%,rgba(0,0,0,0.72)_78%)]"
@@ -335,14 +401,13 @@ function EclipsePassage({ tale, reduced }: PassageProps) {
           style={motionOr(reduced, { y: copyY, opacity: copyOpacity })}
         />
         <Credit tale={tale} />
-      </div>
-    </section>
+    </PassageStage>
   )
 }
 
-function AuraPassage({ tale, reduced }: PassageProps) {
-  const { ref, scrollYProgress, px, onPointerMove } = useScrub(reduced)
-  const driftX = useTransform(px, [-0.5, 0.5], [-12, 12])
+function AuraPassage({ tale, reduced, overlapNext }: PassageProps) {
+  const scrub = useScrub()
+  const { scrollYProgress } = scrub
   const driftY = useTransform(scrollYProgress, [0, 1], ['-4%', '6%'])
   const burst = useTransform(scrollYProgress, [0.12, 0.86], [0.35, 2.4])
   const burstOpacity = useTransform(scrollYProgress, [0.12, 0.42, 0.86], [0, 0.85, 0])
@@ -350,21 +415,12 @@ function AuraPassage({ tale, reduced }: PassageProps) {
   const titleScale = useTransform(scrollYProgress, [0, 0.42], [0.92, 1])
 
   return (
-    <section
-      id={tale.id}
-      ref={ref}
-      className={stageHeight(reduced)}
-      style={taleStyle(tale)}
-    >
-      <div
-        className="sticky top-0 h-svh overflow-hidden"
-        onPointerMove={onPointerMove}
-      >
+    <PassageStage tale={tale} reduced={reduced} overlapNext={overlapNext} scrub={scrub}>
         <motion.img
           src={tale.image}
           alt={tale.imageAlt}
           className="absolute inset-[-4%] h-[112%] w-[108%] max-w-none object-cover object-center"
-          style={motionOr(reduced, { x: driftX, y: driftY })}
+          style={motionOr(reduced, { y: driftY })}
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-black/25" />
         <motion.span
@@ -392,8 +448,7 @@ function AuraPassage({ tale, reduced }: PassageProps) {
           style={motionOr(reduced, { scale: titleScale, transformOrigin: 'left bottom' })}
         />
         <Credit tale={tale} />
-      </div>
-    </section>
+    </PassageStage>
   )
 }
 
@@ -408,7 +463,8 @@ const scenes: Record<
   dragonball: AuraPassage,
 }
 
-export function TalePassage({ tale, reduced }: PassageProps) {
+export function TalePassage({ tale, reduced }: Omit<PassageProps, 'overlapNext'>) {
   const Scene = scenes[tale.id]
-  return <Scene tale={tale} reduced={reduced} />
+  const overlapNext = tale.id !== 'dragonball'
+  return <Scene tale={tale} reduced={reduced} overlapNext={overlapNext} />
 }
